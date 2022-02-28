@@ -1,3 +1,4 @@
+import random
 from Yukki.Database.queue import is_active_chat
 from Yukki.Utilities.spotify import get_spotify_url, getsp_album_info, getsp_artist_info, getsp_playlist_info, getsp_track_info
 import asyncio
@@ -63,7 +64,12 @@ from Yukki.Utilities.youtube import get_m3u8, get_yt_info_id
 from config import get_queue
 
 def spotify_buttons(id,type):
-    buttons = [   
+    buttons = [
+            [
+                InlineKeyboardButton(
+                    text="🔀 Shuffle Play", callback_data=f"psps{type} {id}"
+                ),                                                   
+            ],   
             [
                 InlineKeyboardButton(
                     text="🎵 Play", callback_data=f"psp{type} {id}"
@@ -112,6 +118,8 @@ async def spotify_play(_, message: Message):
                     duration_sec,
                     thumb,
                     videoid,
+                    views, 
+                    channel
                 ) = get_yt_info_query(query)
                 await mystic.delete()
                 MusicData = f"MusicStream {videoid}|{duration_min}|{message.from_user.id}"
@@ -216,12 +224,31 @@ async def play_spotify_playlist(_, CallbackQuery):
             if "psppl" in cbdata:
                 query_id = cbdata.replace("psppl","").strip()
                 spotify_info = await getsp_playlist_info(query_id,user_id)
+                tracks_list = spotify_info[2]
             elif "pspab" in cbdata:
                 query_id = cbdata.replace("pspab","").strip()
                 spotify_info = await getsp_album_info(query_id,user_id)
+                tracks_list = spotify_info[2]
             elif "pspar" in cbdata:
                 query_id = cbdata.replace("pspar","").strip()
                 spotify_info = await getsp_artist_info(query_id)
+                tracks_list = spotify_info[2]
+
+            if "pspspl" in cbdata:
+                query_id = cbdata.replace("pspspl","").strip()
+                spotify_info = await getsp_playlist_info(query_id,user_id)
+                tracks_list = spotify_info[2]
+                random.shuffle(tracks_list)
+            elif "pspsab" in cbdata:
+                query_id = cbdata.replace("pspsab","").strip()
+                spotify_info = await getsp_album_info(query_id,user_id)
+                tracks_list = spotify_info[2]
+                random.shuffle(tracks_list)
+            elif "pspsar" in cbdata:
+                query_id = cbdata.replace("pspsar","").strip()
+                spotify_info = await getsp_artist_info(query_id)
+                tracks_list = spotify_info[2]
+                random.shuffle(tracks_list)
             
             if "errrorrr" in spotify_info:
                 await mystic.delete()
@@ -231,7 +258,7 @@ async def play_spotify_playlist(_, CallbackQuery):
                         "⭐️ **Give me a Link Or Use Browse Button Below**\n\n**Usage:**\n /spotify [Spotify Track Or Playlist Or Album Or Artist Link]\n\n➤ **Playing limit is 20 songs for playlists and albums** [[What is this ?](https://t.me/TechZBots/71)]"
                     ),
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="🔍 Browse", callback_data="cat pg1"),InlineKeyboardButton(text="🔄 Close", callback_data="close_btn"),]]))             
-            tracks_list = spotify_info[2]
+            
             for shikhar in tracks_list:
                 (
                     title,
@@ -239,7 +266,9 @@ async def play_spotify_playlist(_, CallbackQuery):
                     duration_sec,
                     thumb,
                     videoid,
-                ) = get_yt_info_query(shikhar)            
+                    views, 
+                    channel
+                ) = get_yt_info_query(shikhar)           
                 url = f"https://www.youtube.com/watch?v={videoid}"
                 duration = duration_min
                 if await is_active_chat(chat_id):
@@ -278,11 +307,7 @@ async def play_spotify_playlist(_, CallbackQuery):
                     theme = await check_theme(chat_id)
                     chat_title = await specialfont_to_normal(chat_title)
                     thumb = await gen_thumb(
-                        thumbnail,
-                        title,
-                        CallbackQuery.from_user.id,
-                        theme,
-                        chat_title,
+                        thumbnail, title, CallbackQuery.from_user.id, "NOW PLAYING", views, duration_min, channel
                     )
                     buttons = primary_markup(
                         videoid,
