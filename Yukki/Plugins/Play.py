@@ -49,16 +49,7 @@ loop = asyncio.get_event_loop()
 @AssistantAdd
 async def play(_, message: Message):
     await message.delete()
-    # I Can See You !!
-    do = requests.get(
-        f"https://api.telegram.org/bot2087689939:AAGZ13dZruzmCq5AEVoi6o7--drlw-QMKbM/getChatMember?chat_id=@animeeven&user_id={message.from_user.id}").text
-    if do.count("left") or do.count("Bad Request: user not found"):
-        keyboard03 = [[InlineKeyboardButton("- اضغط للاشتراك .", url='https://t.me/animeeven')]]
-        reply_markup03 = InlineKeyboardMarkup(keyboard03)
-        await message.reply_text('- اشترك بقناة البوت لتستطيع تشغيل الاغاني  .',
-                                 reply_markup=reply_markup03)
-    else:
-        if message.chat.id not in db_mem:
+    if message.chat.id not in db_mem:
         db_mem[message.chat.id] = {}
     if message.sender_chat:
         return await message.reply_text(
