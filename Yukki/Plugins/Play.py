@@ -37,7 +37,17 @@ from Yukki.Utilities.youtube import (get_yt_info_id, get_yt_info_query,
                                      get_yt_info_query_slider)
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+from pyrogram.errors import UserNotParticipant
+
 loop = asyncio.get_event_loop()
+
+JOIN_ASAP = f"⛔️** Access Denied **⛔️\n\n🙋‍♂️ Hey There , You Must Join @szteambots Telegram Channel To Use This BOT. So, Please Join it & Try Again🤗. Thank You 🤝"
+
+FSUBB = InlineKeyboardMarkup(
+        [[
+        InlineKeyboardButton(text="Sz Team Bots <sz/>", url=f"https://t.me/szteambots") 
+        ]]
+    )
 
 
 @app.on_message(
@@ -49,150 +59,134 @@ loop = asyncio.get_event_loop()
 @AssistantAdd
 async def play(_, message: Message):
     await message.delete()
-     # I Can See You !!
-    do = requests.get(
-        f"https://api.telegram.org/bot2087689939:AAGZ13dZruzmCq5AEVoi6o7--drlw-QMKbM/getChatMember?chat_id=@animeeven&user_id={message.from_user.id}").text
-    if do.count("left") or do.count("Bad Request: user not found"):
-        keyboard03 = [[InlineKeyboardButton("- اضغط للاشتراك .", url='https://t.me/animeeven')]]
-        reply_markup03 = InlineKeyboardMarkup(keyboard03)
-        await message.reply_text('- اشترك بقناة البوت لتستطيع تشغيل الاغاني  .',
-                                 reply_markup=reply_markup03)
-    else:
-        if message.chat.id not in db_mem:
-            db_mem[message.chat.id] = {}
-        if message.sender_chat:
+    try:
+        await message._client.get_chat_member(int("-1001325914694"), message.from_user.id)
+    except UserNotParticipant:
+        await message.reply_text(
+        text=JOIN_ASAP, disable_web_page_preview=True, reply_markup=FSUBB
+    )
+        return 
+    if message.chat.id not in db_mem:
+        db_mem[message.chat.id] = {}
+    if message.sender_chat:
+        return await message.reply_text(
+            "You're an __Anonymous Admin__ in this Chat Group!\nRevert back to User Account From Admin Rights."
+        )
+    audio = (
+        (message.reply_to_message.audio or message.reply_to_message.voice)
+        if message.reply_to_message
+        else None
+    )
+    video = (
+        (message.reply_to_message.video or message.reply_to_message.document)
+        if message.reply_to_message
+        else None
+    )
+    url = get_url(message)
+    if audio:
+        mystic = await message.reply_text(
+            "`Processing Audio... Please Wait!`"
+        )
+        if audio.file_size > 1073741824:
+            return await mystic.edit_text(
+                "Audio File Size Should Be Less Than 150 mb"
+            )
+        duration_min = seconds_to_min(audio.duration)
+        duration_sec = audio.duration
+        if (audio.duration) > DURATION_LIMIT:
+            return await mystic.edit_text(
+                f"**Duration Limit Exceeded**\n\n**Allowed Duration: **{DURATION_LIMIT_MIN} minute(s)\n**Received Duration:** {duration_min} minute(s)"
+            )
+        file_name = (
+            audio.file_unique_id
+            + "."
+            + (
+                (audio.file_name.split(".")[-1])
+                if (not isinstance(audio, Voice))
+                else "ogg"
+            )
+        )
+        file_name = path.join(path.realpath("downloads"), file_name)
+        file = await convert(
+            (await message.reply_to_message.download(file_name))
+            if (not path.isfile(file_name))
+            else file_name,
+        )
+        return await start_stream_audio(
+            message,
+            file,
+            "smex1",
+            "Given Audio Via Telegram",
+            duration_min,
+            duration_sec,
+            mystic,
+        )
+    elif video:
+        limit = await get_video_limit(141414)
+        if not limit:
             return await message.reply_text(
-                "انت لست  مشرف في المجموعه!\nيجب انت تكون مشرف مع بعض الصلاحيات."
+                "**No Limit Defined for Video Calls**\n\nSet a Limit for Number of Maximum Video Calls allowed on Bot by /set_video_limit [Sudo Users Only]"
             )
-        audio = (
-            (message.reply_to_message.audio or message.reply_to_message.voice)
-            if message.reply_to_message
-            else None
-        )
-        video = (
-            (message.reply_to_message.video or message.reply_to_message.document)
-            if message.reply_to_message
-            else None
-        )
-        url = get_url(message)
-        if audio:
-            mystic = await message.reply_text(
-                "🔄 جارٍ معالجة الصوت ... يُرجى الانتظار!"
-            )
-            try:
-                read = db_mem[message.chat.id]["live_check"]
-                if read:
-                    return await mystic.edit(
-                        "تشغيل البث المباشر ... أوقفه لتشغيل الموسيقى"
-                    )
-                else:
-                    pass
-            except:
+        count = len(await get_active_video_chats())
+        if int(count) == int(limit):
+            if await is_active_video_chat(message.chat.id):
                 pass
-            if audio.file_size > 1073741824:
-                return await mystic.edit_text(
-                    "يجب أن يكون حجم ملف الصوت أقل من 150 ميغا بايت"
-                )
-            duration_min = seconds_to_min(audio.duration)
-            duration_sec = audio.duration
-            if (audio.duration) > DURATION_LIMIT:
-                return await mystic.edit_text(
-                    f"**تم تجاوز حد المدة**\n\n**المدة المسموح بها: **{DURATION_LIMIT_MIN} الدقائق\n**المدة المستلمة:** {duration_min} الدقائق"
-                )
-            file_name = (
-                    audio.file_unique_id
-                    + "."
-                    + (
-                        (audio.file_name.split(".")[-1])
-                        if (not isinstance(audio, Voice))
-                        else "ogg"
-                    )
-            )
-            file_name = path.join(path.realpath("downloads"), file_name)
-            file = await convert(
-                (await message.reply_to_message.download(file_name))
-                if (not path.isfile(file_name))
-                else file_name,
-            )
-            return await start_stream_audio(
-                message,
-                file,
-                "smex1",
-                "Given Audio Via Telegram",
-                duration_min,
-                duration_sec,
-                mystic,
-            )
-        elif video:
-            limit = await get_video_limit(141414)
-            if not limit:
-                return await message.reply_text(
-                    "**لا حدود محددة لمكالمات الفيديو**\n\nعيِّن حدًا لعدد الحد الأقصى لمكالمات الفيديو المسموح بها  /set_video_limit [للمطورين فقط]"
-                )
-            count = len(await get_active_video_chats())
-            if int(count) == int(limit):
-                if await is_active_video_chat(message.chat.id):
-                    pass
-                else:
-                    return await message.reply_text(
-                        "آسف! يسمح البوت بعدد محدود فقط من مكالمات الفيديو بسبب مشاكل التحميل الزائد لوحدة المعالجة المركزية. العديد من الدردشات الأخرى تستخدم مكالمات الفيديو في الوقت الحالي. حاول التبديل إلى الصوت أو حاول مرة أخرى لاحقًا"
-                    )
-            mystic = await message.reply_text(
-                "🔄 جارٍ معالجة الفيديو ... يُرجى الانتظار!"
-            )
-            try:
-                read = db_mem[message.chat.id]["live_check"]
-                if read:
-                    return await mystic.edit(
-                        "تشغيل البث المباشر ... أوقفه لتشغيل الموسيقى"
-                    )
-                else:
-                    pass
-            except:
-                pass
-            file = await telegram_download(message, mystic)
-            return await start_stream_video(
-                message,
-                file,
-                "فيديو معين عبر تلجرام",
-                mystic,
-            )
-        elif url:
-            mystic = await message.reply_text("🔄 قيد المعالجة ... يرجى الانتظار!")
-            if not message.reply_to_message:
-                query = message.text.split(None, 1)[1]
             else:
-                query = message.reply_to_message.text
-            (
-                title,
-                duration_min,
-                duration_sec,
-                thumb,
-                videoid,
-            ) = get_yt_info_query(query)
-            await mystic.delete()
-            buttons = url_markup2(videoid, duration_min, message.from_user.id)
-            return await message.reply_photo(
-                photo=thumb,
-                caption=f"📎 العنوان: **{title}\n\n⏳ المدة:** {duration_min} دقيقة\n\n__[احصل على معلومات إضافية حول الفيديو](https://t.me/{BOT_USERNAME}?start=info_{videoid})__",
+                return await message.reply_text(
+                    "Sorry! Bot only allows limited number of video calls due to CPU overload issues. Many other chats are using video call right now. Try switching to audio or try again later"
+                )
+        mystic = await message.reply_text(
+            "`Processing Video... Please Wait!`"
+        )
+        file = await telegram_download(message, mystic)
+        return await start_stream_video(
+            message,
+            file,
+            "Given Video Via Telegram",
+            mystic,
+        )
+    elif url:
+        if "spotify.com" in url:
+            return await message.reply_text("Use /spotify for spotify links")
+        
+        if "resso.com" in url:            
+            return await message.reply_text("Use /resso for resso links")
+        
+        mystic = await message.reply_text("`Processing URL... Please Wait!`")
+        if not message.reply_to_message:
+            query = message.text.split(None, 1)[1]
+        else:
+            query = message.reply_to_message.text
+        (
+            title,
+            duration_min,
+            duration_sec,
+            thumb,
+            videoid,
+            views, 
+            channel
+        ) = get_yt_info_query(query)
+        await mystic.delete()
+        mention = f"[{message.from_user.first_name}](tg://user?id={message.from_user.id})"
+        buttons = url_markup2(videoid, duration_min, message.from_user.id)
+        return await message.reply_photo(
+            photo=thumb,
+            caption=f"🏷 **Name:**{title}\n**⏱Duration**: {duration_min} Mins\n🎧 **Request by:**{mention}\n\n[Get  Information](https://t.me/{BOT_USERNAME}?start=info_{videoid})",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+    else:
+        if len(message.command) < 2:
+            buttons = playlist_markup(
+                message.from_user.first_name, message.from_user.id, "abcd"
+            )
+            await message.reply_text(
+                    "**Usage:** /play [Music Name or Youtube Link or Reply to Audio]\n\nIf you want to play Playlists! Select the one from Below.",
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
-        else:
-            if len(message.command) < 2:
-                buttons = playlist_markup(
-                    message.from_user.first_name, message.from_user.id, "abcd"
-                )
-                await message.reply_photo(
-                    photo="Utils/Playlist.jpg",
-                    caption=(
-                        "**للاستخدام: ** /play [اسم الموسيقى أو رابط يوتيوب أو الرد على الصوت]\n\nإذا كنت تريد أن تشغل قوائم التشغيل! حدد واحد من أدناه."
-                    ),
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                )
-                return
-            mystic = await message.reply_text("🔍 ** جاري البحث **...")
-            query = message.text.split(None, 1)[1]
-            (
+            return
+        mystic = await message.reply_text("🔍 **Searching**...")
+        query = message.text.split(None, 1)[1]
+        (
             title,
             duration_min,
             duration_sec,
@@ -207,7 +201,7 @@ async def play(_, message: Message):
         )
         return await message.reply_photo(
             photo=thumb,
-            caption=f"📎Title: **{title}\n\n⏳Duration:** {duration_min} Mins\n\n__[Get Additional Information About Video](https://t.me/{BOT_USERNAME}?start=info_{videoid})__",
+            caption=f"🏷 **Name:**{title}\n**⏱Duration**: {duration_min} Mins\n🎧 **Request by:**{mention}\n\n[Get  Information](https://t.me/{BOT_USERNAME}?start=info_{videoid})",
             reply_markup=InlineKeyboardMarkup(buttons),
         )
 
@@ -216,17 +210,6 @@ async def play(_, message: Message):
 async def Music_Stream(_, CallbackQuery):
     if CallbackQuery.message.chat.id not in db_mem:
         db_mem[CallbackQuery.message.chat.id] = {}
-    try:
-        read1 = db_mem[CallbackQuery.message.chat.id]["live_check"]
-        if read1:
-            return await CallbackQuery.answer(
-                "Live Streaming Playing...Stop it to play music",
-                show_alert=True,
-            )
-        else:
-            pass
-    except:
-        pass
     callback_data = CallbackQuery.data.strip()
     callback_request = callback_data.split(None, 1)[1]
     chat_id = CallbackQuery.message.chat.id
@@ -294,12 +277,9 @@ async def search_query_more(_, CallbackQuery):
         )
     await CallbackQuery.answer("Searching More Results")
     results = YoutubeSearch(query, max_results=5).to_dict()
-    med = InputMediaPhoto(
-        media="Utils/Result.JPEG",
-        caption=(
-            f"1️⃣<b>{results[0]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[0]['id']})__</u>\n\n2️⃣<b>{results[1]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[1]['id']})__</u>\n\n3️⃣<b>{results[2]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[2]['id']})__</u>\n\n4️⃣<b>{results[3]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[3]['id']})__</u>\n\n5️⃣<b>{results[4]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[4]['id']})__</u>"
-        ),
-    )
+    med = await app.send_message(f"1️⃣ <b>{results[0]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[0]['id']})\n\n2️⃣ <b>{results[1]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[1]['id']})\n\n3️⃣ <b>{results[2]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[3]['id']})\n\n4️⃣ <b>{results[3]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[3]['id']})\n\n5️⃣ <b>{results[4]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[4]['id']})")
+
+
     buttons = search_markup(
         results[0]["id"],
         results[1]["id"],
@@ -314,8 +294,7 @@ async def search_query_more(_, CallbackQuery):
         user_id,
         query,
     )
-    return await CallbackQuery.edit_message_media(
-        media=med, reply_markup=InlineKeyboardMarkup(buttons)
+    return await CallbackQuery.edit_message_text(med,reply_markup=InlineKeyboardMarkup(buttons)
     )
 
 
@@ -346,7 +325,7 @@ async def popat(_, CallbackQuery):
             query,
         )
         await CallbackQuery.edit_message_text(
-            f"6️⃣<b>{results[5]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[5]['id']})__</u>\n\n7️⃣<b>{results[6]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[6]['id']})__</u>\n\n8️⃣<b>{results[7]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[7]['id']})__</u>\n\n9️⃣<b>{results[8]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[8]['id']})__</u>\n\n🔟<b>{results[9]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[9]['id']})__</u>",
+            f"6️⃣ <b>{results[5]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info{results[5]['id']})\n\n7️⃣ <b>{results[6]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info{results[6]['id']})\n\n8️⃣ <b>{results[7]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info{results[7]['id']})\n\n9️⃣ <b>{results[8]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info{results[8]['id']})\n\n🔟 <b>{results[9]['title']}</b>\n └💡 [More information](https://t.me/{BOT_USERNAME}?start=info{results[9]['id']})",
             reply_markup=InlineKeyboardMarkup(buttons),
         )
         disable_web_page_preview = True
@@ -367,7 +346,7 @@ async def popat(_, CallbackQuery):
             query,
         )
         await CallbackQuery.edit_message_text(
-            f"1️⃣<b>{results[0]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[0]['id']})__</u>\n\n2️⃣<b>{results[1]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[1]['id']})__</u>\n\n3️⃣<b>{results[2]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[2]['id']})__</u>\n\n4️⃣<b>{results[3]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[3]['id']})__</u>\n\n5️⃣<b>{results[4]['title']}</b>\n  ┗  🔗 <u>__[Get Additional Information](https://t.me/{BOT_USERNAME}?start=info_{results[4]['id']})__</u>",
+            f"1️⃣ <b>{results[0]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[0]['id']})\n\n2️⃣ <b>{results[1]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[1]['id']})\n\n3️⃣ <b>{results[2]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[3]['id']})\n\n4️⃣ <b>{results[3]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[3]['id']})\n\n5️⃣ <b>{results[4]['title']}</b>\n └ 💡 [More information](https://t.me/{BOT_USERNAME}?start=info_{results[4]['id']})",
             reply_markup=InlineKeyboardMarkup(buttons),
         )
         disable_web_page_preview = True
@@ -377,6 +356,7 @@ async def popat(_, CallbackQuery):
 @app.on_callback_query(filters.regex(pattern=r"slider"))
 async def slider_query_results(_, CallbackQuery):
     callback_data = CallbackQuery.data.strip()
+    mention = f"[{CallbackQuery.from_user.first_name}](tg://user?id={CallbackQuery.from_user.id})"
     callback_request = callback_data.split(None, 1)[1]
     what, type, query, user_id = callback_request.split("|")
     if CallbackQuery.from_user.id != int(user_id):
@@ -404,7 +384,7 @@ async def slider_query_results(_, CallbackQuery):
         )
         med = InputMediaPhoto(
             media=thumb,
-            caption=f"📎Title: **{title}\n\n⏳Duration:** {duration_min} Mins\n\n__[Get Additional Information About Video](https://t.me/{BOT_USERNAME}?start=info_{videoid})__",
+            caption=f"🏷 **Name:**{title}\n**⏱Duration**: {duration_min} Mins\n🎧 **Request by:**{mention}\n\n[Get  Information](https://t.me/{BOT_USERNAME}?start=info_{videoid})",
         )
         return await CallbackQuery.edit_message_media(
             media=med, reply_markup=InlineKeyboardMarkup(buttons)
@@ -427,7 +407,7 @@ async def slider_query_results(_, CallbackQuery):
         )
         med = InputMediaPhoto(
             media=thumb,
-            caption=f"📎Title: **{title}\n\n⏳Duration:** {duration_min} Mins\n\n__[Get Additional Information About Video](https://t.me/{BOT_USERNAME}?start=info_{videoid})__",
+            caption=f"🏷 **Name:**{title}\n**⏱Duration**: {duration_min} Mins\n🎧 **Request by:**{mention}\n\n[Get  Information](https://t.me/{BOT_USERNAME}?start=info_{videoid})",
         )
         return await CallbackQuery.edit_message_media(
             media=med, reply_markup=InlineKeyboardMarkup(buttons)
