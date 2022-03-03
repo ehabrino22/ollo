@@ -64,7 +64,7 @@ async def gen_thumb(thumbnail, title, userid, status, views, duration, channel):
     image2.paste(circle, (0,0), mask = circle)
 
     # fonts
-   font1 = ImageFont.truetype(r'Utils/Lalezar-Regular.ttf', 30)
+    font1 = ImageFont.truetype(r'Utils/Lalezar-Regular.ttf', 30)
     font2 = ImageFont.truetype(r'Utils/Lalezar-Regular.ttf', 60)
     font3 = ImageFont.truetype(r'Utils/Lalezar-Regular.ttf', 40)
     font4 = ImageFont.truetype(r'Utils/Lalezar-Regular.ttf', 35)
