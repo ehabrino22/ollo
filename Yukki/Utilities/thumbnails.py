@@ -60,7 +60,7 @@ async def gen_thumb(thumbnail, title, userid, status, views, duration, channel):
     image3 = Image.fromarray(final_img_arr)
     image3 = image3.resize((600,600))
 
-    image2.paste(image3, (50,70), mask = image3)
+    image2.paste(image3, (18,18), mask = image3)
     image2.paste(circle, (0,0), mask = circle)
 
     # fonts
@@ -91,3 +91,5 @@ async def gen_thumb(thumbnail, title, userid, status, views, duration, channel):
     os.remove(f"cache/thumb{userid}.jpg")
     final = f"cache/final{userid}.png"
     return final
+
+
